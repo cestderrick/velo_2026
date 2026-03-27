@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Carte Cédric</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
+	<script>
+	  function setAppHeight() {
+		document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
+	  }
+	  window.addEventListener('resize', setAppHeight);
+	  window.addEventListener('orientationchange', setAppHeight);
+	  setAppHeight();
+	</script>
+
+
+  <style>
+    * { box-sizing: border-box; }
+html, body {
+  height: var(--app-height);
+  margin: 0;
+  padding: 0;
+  font-family: sans-serif;
+}
+
+body {
+  display: flex;
+  flex-direction: row;
+  height: var(--app-height);
+}
+
+ul#trajets li {
+  cursor: pointer;
+  padding: 10px;
+  margin-bottom: 8px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+  transition: background-color 0.3s;
+  list-style: none; /* Enlève le puce */
+}
+
+ul#trajets li:hover {
+  background-color: #e0e0e0;
+}
+
+
+	#refresh-btn {
+	  padding: 0.8rem 1.2rem;
+	  font-size: 1rem;
+	  border: none;
+	  border-radius: 8px;
+	  background-color: #007bff;
+	  color: white;
+	  font-weight: bold;
+	  cursor: pointer;
+	  width: 100%; /* prend toute la largeur sur mobile */
+	  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	  transition: background-color 0.3s ease;
+	}
+
+	#refresh-btn:hover {
+	  background-color: #0056b3;
+	}
+
+	.leaflet-popup-content img {
+	  max-width: 100%;
+	  height: auto;
+	  display: block;
+	  margin: 0 auto;
+	}
+	.leaflet-popup-content {
+	  max-width: 250px; /* ou autre valeur */
+	  overflow-wrap: break-word;
+	}
+
+    #sidebar {
+      width: 30%;
+      padding: 20px;
+      background-color: #f4f4f4;
+      overflow-y: auto;
+      border-right: 1px solid #ccc;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #map {
+      width: 70%;
+      height: var(--app-height);
+    }
+
+    /* Onglets */
+    .tabs {
+      display: flex;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #ccc;
+    }
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px;
+      cursor: pointer;
+      user-select: none;
+      background: #ddd;
+      border-top-left-radius: 5px;
+      border-top-right-radius: 5px;
+      border: 1px solid #ccc;
+      border-bottom: none;
+    }
+    .tab.active {
+      background: white;
+      font-weight: bold;
+      border-bottom: 1px solid white;
+    }
+
+    .tab-content {
+      flex-grow: 1;
+      overflow-y: auto;
+    }
+
+    .info-section {
+      margin-bottom: 20px;
+    }
+    .info-section h2 {
+      margin-top: 0;
+    }
+    button {
+      padding: 10px 20px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+    #last-update {
+      display: block;
+      margin-top: 10px;
+      font-style: italic;
+      color: #666;
+    }
+
+    /* Photos list */
+    #photos-list img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin-bottom: 5px;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    #photos-list .photo-entry {
+      margin-bottom: 15px;
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 10px;
+    }
+    #photos-list small {
+      color: #555;
+      font-style: italic;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      body {
+        flex-direction: column;
+      }
+      #sidebar {
+        width: 100%;
+        height: 30vh;
+        border-right: none;
+        border-bottom: 1px solid #ccc;
+      }
+      #map {
+        width: 100%;
+        height: 55vh;
+      }
+      .tab-content {
+        max-height: calc(30vh - 50px);
+      }
+	  
+	#refresh-btn {
+		width: auto; /* redeviens compact sur desktop */
+		display: inline-block;
+        font-size: medium;
+        text-align: centrer;
+	  }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="tabs">
+      <div class="tab active" data-tab="info">Informations</div>
+	  <div class="tab" data-tab="trace">Trajets</div>
+      <div class="tab" data-tab="photos">Photos</div>
+    </div>
+
+    <div class="tab-content" id="info" style="display: block;">
+      <div class="info-section">
+        <h2 hidden>Informations</h2>
+        <button onclick="refreshLivePosition()" class="refresh-btn">Actualiser la position actuelle</button><span id="last-update">Chargement...</span>
+		<p id="current-location" style="margin-top: 10px; color: #333;">Position : en cours...</p>
+      </div>
+    </div>
+	<div class="tab-content" id="trace" style="display: none;">
+      <div class="info-section">
+        <h2 hidden>Filtres historique</h2>
+        <div id="trajets-list" style="margin-top: 20px;">
+          <h3>Liste des trajets. Clique sur un trajet pour l'afficher</h3>
+          <ul id="trajets"></ul>
+        </div>
+		
+		<label for="dateStart" hidden>Date départ :</label><br />
+        <input type="date" id="dateStart" hidden /><br /><br />
+
+        <label for="dateEnd" hidden>Date arrivée :</label><br />
+        <input type="date" id="dateEnd" hidden /><br /><br />
+
+        <button id="btnShowTrace" hidden>Afficher le trajet</button>
+		
+      </div>
+    </div>
+
+    <div class="tab-content" id="photos" style="display: none;">
+      <h2>Photos</h2>
+      <div id="photos-list">Chargement des photos...</div>
+    </div>
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/OverlappingMarkerSpiderfier-Leaflet/0.2.6/oms.min.js"></script>
+
+<script>
+  // Onglets
+  const tabs = document.querySelectorAll('.tab');
+  const tabContents = document.querySelectorAll('.tab-content');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      tabContents.forEach(tc => tc.style.display = 'none');
+      const target = tab.getAttribute('data-tab');
+      document.getElementById(target).style.display = 'block';
+    });
+  });
+
+  const map = L.map('map').setView([46.5, 2], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap'
+  }).addTo(map);
+
+  const oms = new OverlappingMarkerSpiderfier(map, { keepSpiderfied: true, nearbyDistance: 20 });
+
+  let traceLayer = null;
+  let pointMarkers = [];
+  let photoMarkers = [];
+
+  function formatDate(isoString) {
+    const date = new Date(isoString);
+    date.setHours(date.getHours() + 2);
+    const pad = (n) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  function clearMapLayers() {
+    if (traceLayer) {
+      map.removeLayer(traceLayer);
+      traceLayer = null;
+    }
+    pointMarkers.forEach(m => map.removeLayer(m));
+    pointMarkers = [];
+  }
+
+  function showTrace(data) {
+    clearMapLayers();
+    const filteredData = data.filter(p => p.lat !== null && p.lon !== null && !isNaN(p.lat) && !isNaN(p.lon));
+    if (filteredData.length < 2) {
+      alert('Pas assez de points valides pour tracer la route.');
+      return;
+    }
+    const latlngs = filteredData.map(p => [p.lat, p.lon]);
+    traceLayer = L.polyline(latlngs, { color: 'blue' }).addTo(map);
+    map.fitBounds(traceLayer.getBounds());
+    filteredData.forEach(p => {
+      const marker = L.circleMarker([p.lat, p.lon], {
+        radius: 4, color: 'black', fillColor: 'blue', fillOpacity: 0.5
+      }).addTo(map);
+      marker.bindPopup(`Point GPS : ${formatDate(p.timestamp)}`);
+      pointMarkers.push(marker);
+    });
+  }
+
+  document.getElementById('btnShowTrace').addEventListener('click', () => {
+    const dateStart = document.getElementById('dateStart').value;
+    const dateEnd = document.getElementById('dateEnd').value;
+    if (!dateStart || !dateEnd) {
+      alert('Merci de sélectionner les deux dates');
+      return;
+    }
+    const startISO = new Date(dateStart + 'T00:00:00').toISOString();
+    const endISO = new Date(dateEnd + 'T23:59:59').toISOString();
+    fetch(`/api/position/history?start=${startISO}&end=${endISO}`)
+      .then(res => res.json())
+      .then(showTrace)
+      .catch(err => {
+        console.error('Erreur récupération trace :', err);
+        alert('Erreur lors de la récupération de l’historique');
+      });
+  });
+
+  let distancesParJour = {};
+
+  function loadTrajetsList() {
+    const dateStart = document.getElementById('dateStart').value;
+    const dateEnd = document.getElementById('dateEnd').value;
+    const startISO = new Date(dateStart + 'T00:00:00').toISOString();
+    const endISO = new Date(dateEnd + 'T23:59:59').toISOString();
+    fetch(`/api/position/history?start=${startISO}&end=${endISO}`)
+      .then(res => res.json())
+      .then(data => {
+        const trajetsEl = document.getElementById('trajets');
+        trajetsEl.innerHTML = '';
+        if (data.length === 0) {
+          trajetsEl.innerHTML = '<li>Aucun trajet trouvé.</li>';
+          return;
+        }
+        const trajetsParJour = {};
+        data.forEach(p => {
+          const jour = new Date(p.timestamp).toISOString().slice(0, 10);
+          if (!trajetsParJour[jour]) trajetsParJour[jour] = [];
+          trajetsParJour[jour].push(p);
+        });
+        for (const jour in trajetsParJour) {
+          const points = trajetsParJour[jour];
+          const distanceKm = distancesParJour[jour] ?? 0;
+        
+          // Tri par timestamp croissant (au cas où)
+          points.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+          
+          const startTime = new Date(points[0].timestamp);
+          const endTime = new Date(points[points.length - 1].timestamp);
+          const durationMs = endTime - startTime;
+          
+          // Conversion durée en h/min
+          const durationMinutes = Math.floor(durationMs / 60000);
+          const heures = Math.floor(durationMinutes / 60);
+          const minutes = durationMinutes % 60;
+          const formattedDuration = `${heures}h${minutes.toString().padStart(2, '0')}`;
+        
+          const li = document.createElement('li');
+          li.textContent = `Trajet du ${jour} - ${distanceKm.toFixed(2)}km - ${formattedDuration}`;
+          li.style.cursor = 'pointer';
+          li.style.marginBottom = '8px';
+          li.onclick = () => showTrace(points);
+          trajetsEl.appendChild(li);
+        }
+      })
+      .catch(err => console.error('Erreur récupération trajets:', err));
+  }
+
+  document.getElementById('dateStart').addEventListener('change', loadTrajetsList);
+  document.getElementById('dateEnd').addEventListener('change', loadTrajetsList);
+  const today = new Date().toISOString().slice(0, 10);
+  document.getElementById('dateStart').value = today;
+  document.getElementById('dateEnd').value = today;
+  
+  fetch('/api/distances')
+  .then(res => res.json())
+  .then(data => {
+    distancesParJour = {};
+    data.forEach(entry => {
+      distancesParJour[entry.jour] = entry.distance_km;
+    });
+      loadTrajetsList(); // on attend que distancesParJour soit prêt
+    })
+  .catch(err => {
+    console.error('Erreur récupération distances :', err);
+    loadTrajetsList(); // au pire on affiche la liste sans les distances
+  });
+  
+  function loadPhotosList() {
+    fetch('/api/photos')
+      .then(res => res.json())
+      .then(data => {
+        const photosContainer = document.getElementById('photos-list');
+        photosContainer.innerHTML = '';
+        if (!data.length) {
+          photosContainer.innerHTML = '<p>Aucune photo disponible.</p>';
+          return;
+        }
+        
+        data.reverse();
+        
+        data.forEach(photo => {
+          const date = new Date(photo.timestamp);
+          const formattedDate = date.toLocaleString();
+          const div = document.createElement('div');
+          div.classList.add('photo-entry');
+          div.innerHTML = `
+            <img src="/static/photos/${photo.filename}" alt="Photo prise le ${formattedDate}">
+            <div><small>Prise le ${formattedDate}</small></div>
+          `;
+          photosContainer.appendChild(div);
+        });
+      })
+      .catch(err => {
+        console.error('Erreur chargement photos:', err);
+        document.getElementById('photos-list').innerHTML = '<p>Erreur chargement photos.</p>';
+      });
+  }
+
+function reverseGeocode(lat, lon) {
+  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`)
+    .then(response => response.json())
+    .then(data => {
+      const address = data.address;
+      const commune = address.town || address.village || address.city || address.municipality || 'Inconnue';
+      const codePostal = address.postcode || 'Non disponible';
+
+      // Modifier directement le texte du <p id="current-location">
+      const locationElem = document.getElementById('current-location');
+      locationElem.textContent = `Position : ${commune} (${codePostal})`;
+    })
+    .catch(error => {
+      console.error("Erreur lors du géocodage inverse :", error);
+      document.getElementById('current-location').textContent = "Position : erreur lors du géocodage";
+    });
+}
+
+function refreshLivePosition() {
+  fetch('/api/position')
+    .then(res => res.json())
+    .then(pos => {
+      if (pos.lat && pos.lon) {
+        map.setView([pos.lat, pos.lon], 13);
+        L.circleMarker([pos.lat, pos.lon], {
+          radius: 8, color: 'red', fillColor: '#f03', fillOpacity: 0.5
+        }).addTo(map).bindPopup("Position en direct").openPopup();
+
+        reverseGeocode(pos.lat, pos.lon);  // <-- ici
+
+        const formatted = formatDate(pos.timestamp);
+        document.getElementById('last-update').textContent = `Dernière position reçue : ${formatted}`;
+      }
+    })
+    .catch(err => console.error("Erreur actualisation position :", err));
+}
+
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      if (tab.getAttribute('data-tab') === 'photos') {
+        loadPhotosList();
+      }
+    });
+  });
+
+  function afficherPhotosSurCarte(photos) {
+    photoMarkers.forEach(m => { oms.removeMarker(m); map.removeLayer(m); });
+    photoMarkers = [];
+    photos.forEach(photo => {
+      if (photo.lat && photo.lon) {
+        const marker = L.marker([photo.lat, photo.lon]);
+        const dateStr = new Date(photo.timestamp).toLocaleString();
+        marker.bindPopup(`
+          <div style="text-align:center;">
+            <img src="/static/photos/${photo.filename}" style="max-width:200px;border-radius:8px;" /><br>
+            <small>${dateStr}</small>
+          </div>
+        `);
+        marker.addTo(map);
+        oms.addMarker(marker);
+        photoMarkers.push(marker);
+      }
+    });
+  }
+
+  refreshLivePosition();
+  loadPhotosList();
+  fetch('/api/photos')
+    .then(res => res.json())
+    .then(photos => {
+      loadPhotosList();
+      afficherPhotosSurCarte(photos);
+    })
+    .catch(err => {
+      console.error('Erreur chargement photos:', err);
+    });
+
+	fetch('/log_visit')
+	  .catch(err => console.warn("Erreur de tracking :", err));
+
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Upload photo avec GPS et timestamp</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>
+    // Rechargement automatique toutes les 2 minutes
+/*    setInterval(() => {
+      console.log("í ½í´ RafraÃ®chissement automatique de la page");
+      location.reload();
+    }, 120000);*/
+  </script>
+</head>
+<body>
+  <h1>Prendre une photo</h1>
+  <input type="file" accept="image/*" id="photoInput" /><br /><br />
+  <button onclick="sendPhoto()">Envoyer</button>
+  <p id="status"></p>
+  <p id="gps-status"></p>
+
+<hr />
+<h2>Stats </h2>
+<div id="stats">
+  Chargement des statistiques...
+</div>
+
+  <script>
+    function sendPhoto() {
+      const input = document.getElementById('photoInput');
+      if (!input.files.length) {
+        alert('Choisis une photo');
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const formData = new FormData();
+          formData.append('photo', input.files[0]);
+          formData.append('lat', pos.coords.latitude);
+          formData.append('lon', pos.coords.longitude);
+
+          // Ajout timestamp ISO 8601 UTC
+          const timestamp = new Date().toISOString();
+          formData.append('timestamp', timestamp);
+
+          fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          })
+          .then(res => {
+            if (res.ok) {
+              document.getElementById('status').textContent = `í ½í³¤ Photo envoyÃ©e Ã  ${timestamp}`;
+              input.value = ''; // reset input
+            } else {
+              document.getElementById('status').textContent = 'â Erreur Ã  lâenvoi de la photo';
+            }
+          })
+          .catch(err => {
+            console.error("Erreur rÃ©seau envoi photo :", err);
+            document.getElementById('status').textContent = 'â Erreur rÃ©seau photo';
+          });
+        },
+        (error) => {
+          alert('â Erreur GPS : ' + error.message);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 0
+        }
+      );
+    }
+
+    function sendPositionCoords(lat, lon) {
+      fetch('/api/position', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lon })
+      })
+      .then(response => {
+        if (!response.ok) throw new Error(`Erreur HTTP : ${response.status}`);
+        document.getElementById('gps-status').textContent = 'í ½í³ Position envoyÃ©e âï¸';
+      })
+      .catch(error => {
+        console.error('Erreur envoi position :', error);
+        document.getElementById('gps-status').textContent = 'â Erreur dâenvoi position';
+      });
+    }
+
+    function sendPosition() {
+      if (!navigator.geolocation) {
+        document.getElementById('gps-status').textContent = 'â GPS non supportÃ©';
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          sendPositionCoords(position.coords.latitude, position.coords.longitude);
+        },
+        (error) => {
+          console.error('Erreur gÃ©oloc :', error);
+          document.getElementById('gps-status').textContent = `â GPS erreur : ${error.message}`;
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 0
+        }
+      );
+    }
+
+function fetchStats() {
+  fetch('/visits_stats')
+    .then(res => res.json())
+    .then(data => {
+      const statsDiv = document.getElementById('stats');
+      if (Object.keys(data).length === 0) {
+        statsDiv.textContent = "Aucune donnÃ©e disponible.";
+        return;
+      }
+      
+      let html = "";
+      for (const day of Object.keys(data).sort()) {
+        html += `
+          Stats du ${day}<br />
+          Chargements de la page : <strong>${data[day].total}</strong><br />
+          Visiteurs uniques : <strong>${data[day].uniques.length}</strong><br /><br />
+        `;
+      }
+      statsDiv.innerHTML = html;
+    })
+    .catch(err => {
+      console.error("Erreur chargement stats :", err);
+      document.getElementById('stats').textContent = "Erreur lors du chargement des stats.";
+    });
+}
+
+window.onload = () => {
+  fetchStats();
+};
+
+    window.onload = () => {
+//	    fetch('/log_visit_upload').catch(err => console.warn("Erreur de log upload :", err));
+		fetchStats();
+//      sendPosition(); // position initiale
+//      setInterval(sendPosition, 60000); // toutes les 60 secondes
+    };
+  </script>
+</body>
+</html>
