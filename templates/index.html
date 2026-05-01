@@ -260,7 +260,7 @@ ul#trajets li:hover {
 
   function formatDate(isoString) {
     const date = new Date(isoString);
-    date.setHours(date.getHours() + 2);
+    date.setHours(date.getHours());
     const pad = (n) => n.toString().padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
