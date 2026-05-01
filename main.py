@@ -162,7 +162,7 @@ def post_owntracks():
         return jsonify({'error': 'Missing data in OwnTracks payload'}), 400
 
     dt = datetime.utcfromtimestamp(tst)
-    timestamp = (dt - timedelta(hours=2)).isoformat() + 'Z'  # ← ici on enlève 2h
+    timestamp = dt.isoformat() + 'Z'
 
     position = {
         'lat': lat,
@@ -202,7 +202,7 @@ def upload_photo():
         return jsonify({'error': 'Position GPS manquante'}), 400
 
     if photo and allowed_file(photo.filename):
-        timestamp = (datetime.utcnow() + timedelta(hours=2)).isoformat() + 'Z'
+        timestamp = datetime.utcnow().isoformat() + 'Z'
         filename = datetime.utcnow().strftime('%Y%m%d%H%M%S') + '_' + photo.filename
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         photo.save(filepath)
