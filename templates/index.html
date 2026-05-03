@@ -464,16 +464,20 @@
     document.getElementById('dateEnd').value = today;
 
     fetch('/api/distances')
-      .then(res => res.json())
-      .then(data => {
-        distancesParJour = {};
-        data.forEach(entry => { distancesParJour[entry.jour] = entry.distance_km; });
-        loadTrajetsList();
-      })
-      .catch(err => {
-        console.error('Erreur récupération distances :', err);
-        loadTrajetsList();
+  .then(res => res.json())
+  .then(data => {
+    distancesParJour = {};
+
+    if (Array.isArray(data)) {
+      data.forEach(entry => {
+        distancesParJour[entry.jour] = entry.distance_km;
       });
+    } else {
+      distancesParJour = data;
+    }
+
+    loadTrajetsList();
+  })
 
     // ── Photos ───────────────────────────────────────────────────────────────
     function loadPhotosList() {
